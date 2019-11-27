@@ -3,11 +3,17 @@ name = "actix-web-oauth"
 version = "0.1.0"
 authors = ["Pirmin Kalberer <pka@sourcepole.ch>"]
 edition = "2018"
+default-run = "google-oauth"
 
 [dependencies]
 actix-web = "1.0.0"
 actix-http = "0.2.3"
 actix-service = "0.4.1"
+
+oauth2 = "2.0"
+base64 = "0.10"
+rand = "0.7"
+url = "1.7"
 
 bytes = "0.4"
 env_logger = "0.6"
