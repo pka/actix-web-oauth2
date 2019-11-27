@@ -1,7 +1,7 @@
 #[macro_use]
 extern crate serde_derive;
 use actix_web::http::header;
-use actix_web::{web, App, HttpRequest, HttpResponse, HttpServer, Responder};
+use actix_web::{web, App, HttpResponse, HttpServer};
 use oauth2::basic::BasicClient;
 use oauth2::prelude::*;
 use oauth2::{
@@ -10,16 +10,22 @@ use oauth2::{
 use std::env;
 use url::Url;
 
-fn greet(req: HttpRequest) -> impl Responder {
-    let name = req.match_info().get("name").unwrap_or("World");
-    format!("Hello {}!", &name)
-}
-
 struct AppState {
     client: BasicClient,
 }
 
-fn login(data: web::Data<AppState>) -> impl Responder {
+fn index() -> HttpResponse {
+    let html = r#"<html>
+        <head><title>OAuth2 Test</title></head>
+        <body>
+            <a href="/login">login</a>
+        </body>
+    </html>"#;
+
+    HttpResponse::Ok().body(html)
+}
+
+fn login(data: web::Data<AppState>) -> HttpResponse {
     let client = &data.client;
     // Generate the authorization URL to which we'll redirect the user.
     let (authorize_url, _csrf_state) = client.authorize_url(CsrfToken::new_random);
@@ -35,22 +41,31 @@ pub struct AuthRequest {
     scope: String,
 }
 
-fn auth(data: web::Data<AppState>, params: web::Query<AuthRequest>) -> impl Responder {
+fn auth(data: web::Data<AppState>, params: web::Query<AuthRequest>) -> HttpResponse {
     let client = &data.client;
 
     let code = AuthorizationCode::new(params.code.clone());
     let state = CsrfToken::new(params.state.clone());
     let _scope = params.scope.clone();
 
-    println!("Google returned the following state:\n{}", state.secret(),);
-    // (expected `{}`)\n", csrf_state.secret()
-
     // Exchange the code with a token.
     let token = client.exchange_code(code);
 
-    println!("Google returned the following token:\n{:?}\n", token);
+    let html = format!(
+        r#"<html>
+        <head><title>OAuth2 Test</title></head>
+        <body>
+            Google returned the following state:
+            <pre>{}</pre>
+            Google returned the following token:
+            <pre>{:?}</pre>
+        </body>
+    </html>"#,
+        state.secret(),
+        token
+    );
 
-    HttpResponse::Ok().body("Authentication Successful")
+    HttpResponse::Ok().body(html)
 }
 
 fn main() {
@@ -93,7 +108,7 @@ fn main() {
 
         App::new()
             .data(AppState { client: client })
-            .route("/", web::get().to(greet))
+            .route("/", web::get().to(index))
             .route("/login", web::get().to(login))
             .route("/auth", web::get().to(auth))
     })
