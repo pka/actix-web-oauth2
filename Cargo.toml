@@ -3,7 +3,7 @@ name = "actix-web-oauth"
 version = "0.1.0"
 authors = ["Pirmin Kalberer <pka@sourcepole.ch>"]
 edition = "2018"
-default-run = "google"
+default-run = "gitlab"
 
 [dependencies]
 actix-web = "1.0.0"
