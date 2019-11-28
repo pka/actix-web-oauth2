@@ -10,6 +10,7 @@ actix-web = "1.0.0"
 actix-session = "0.2.0"
 
 oauth2 = "2.0"
+curl = "0.4"
 base64 = "0.10"
 rand = "0.7"
 url = "1.7"
