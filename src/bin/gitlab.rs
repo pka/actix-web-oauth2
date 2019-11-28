@@ -12,7 +12,7 @@ use std::env;
 use url::Url;
 
 struct AppState {
-    client: BasicClient,
+    oauth: BasicClient,
 }
 
 fn index(session: Session) -> HttpResponse {
@@ -36,9 +36,8 @@ fn index(session: Session) -> HttpResponse {
 }
 
 fn login(data: web::Data<AppState>) -> HttpResponse {
-    let client = &data.client;
     // Generate the authorization URL to which we'll redirect the user.
-    let (authorize_url, _csrf_state) = client.authorize_url(CsrfToken::new_random);
+    let (authorize_url, _csrf_state) = &data.oauth.authorize_url(CsrfToken::new_random);
     HttpResponse::Found()
         .header(header::LOCATION, authorize_url.to_string())
         .finish()
@@ -62,13 +61,11 @@ fn auth(
     data: web::Data<AppState>,
     params: web::Query<AuthRequest>,
 ) -> HttpResponse {
-    let client = &data.client;
-
     let code = AuthorizationCode::new(params.code.clone());
     let state = CsrfToken::new(params.state.clone());
 
     // Exchange the code with a token.
-    let token = client.exchange_code(code);
+    let token = &data.oauth.exchange_code(code);
 
     session.set("login", true).unwrap();
 
@@ -123,7 +120,7 @@ fn main() {
         ));
 
         App::new()
-            .data(AppState { client: client })
+            .data(AppState { oauth: client })
             .wrap(CookieSession::signed(&[0; 32]).secure(false))
             .route("/", web::get().to(index))
             .route("/login", web::get().to(login))
