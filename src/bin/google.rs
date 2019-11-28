@@ -1,5 +1,6 @@
 #[macro_use]
 extern crate serde_derive;
+use actix_session::{CookieSession, Session};
 use actix_web::http::header;
 use actix_web::{web, App, HttpResponse, HttpServer};
 use oauth2::basic::BasicClient;
@@ -14,13 +15,22 @@ struct AppState {
     client: BasicClient,
 }
 
-fn index() -> HttpResponse {
-    let html = r#"<html>
+fn index(session: Session) -> HttpResponse {
+    let link = if let Some(_login) = session.get::<bool>("login").unwrap() {
+        "logout"
+    } else {
+        "login"
+    };
+
+    let html = format!(
+        r#"<html>
         <head><title>OAuth2 Test</title></head>
         <body>
-            <a href="/login">login</a>
+            <a href="/{}">{}</a>
         </body>
-    </html>"#;
+    </html>"#,
+        link, link
+    );
 
     HttpResponse::Ok().body(html)
 }
@@ -34,6 +44,13 @@ fn login(data: web::Data<AppState>) -> HttpResponse {
         .finish()
 }
 
+fn logout(session: Session) -> HttpResponse {
+    session.remove("login");
+    HttpResponse::Found()
+        .header(header::LOCATION, "/".to_string())
+        .finish()
+}
+
 #[derive(Deserialize)]
 pub struct AuthRequest {
     code: String,
@@ -41,7 +58,11 @@ pub struct AuthRequest {
     scope: String,
 }
 
-fn auth(data: web::Data<AppState>, params: web::Query<AuthRequest>) -> HttpResponse {
+fn auth(
+    session: Session,
+    data: web::Data<AppState>,
+    params: web::Query<AuthRequest>,
+) -> HttpResponse {
     let client = &data.client;
 
     let code = AuthorizationCode::new(params.code.clone());
@@ -50,6 +71,8 @@ fn auth(data: web::Data<AppState>, params: web::Query<AuthRequest>) -> HttpRespo
 
     // Exchange the code with a token.
     let token = client.exchange_code(code);
+
+    session.set("login", true).unwrap();
 
     let html = format!(
         r#"<html>
@@ -64,7 +87,6 @@ fn auth(data: web::Data<AppState>, params: web::Query<AuthRequest>) -> HttpRespo
         state.secret(),
         token
     );
-
     HttpResponse::Ok().body(html)
 }
 
@@ -108,8 +130,10 @@ fn main() {
 
         App::new()
             .data(AppState { client: client })
+            .wrap(CookieSession::signed(&[0; 32]).secure(false))
             .route("/", web::get().to(index))
             .route("/login", web::get().to(login))
+            .route("/logout", web::get().to(logout))
             .route("/auth", web::get().to(auth))
     })
     .bind("127.0.0.1:5000")

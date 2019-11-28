@@ -7,8 +7,7 @@ default-run = "google"
 
 [dependencies]
 actix-web = "1.0.0"
-actix-http = "0.2.3"
-actix-service = "0.4.1"
+actix-session = "0.2.0"
 
 oauth2 = "2.0"
 base64 = "0.10"
