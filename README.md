@@ -1,4 +1,4 @@
-Actix web Oauth2 examples
+Actix web OAuth2 examples
 =========================
 
 This repo contains examples for using OAuth2 authentication in an [Actix Web](https://actix.rs/) application.
@@ -13,7 +13,7 @@ Current versions:
 
 Create credentials with origin URL http://127.0.0.1:5000 and redirect URL http://127.0.0.1:5000/auth
 
-### Oauth2 login with Google
+### OAuth2 login with Google
 
 Create credentials at https://console.developers.google.com/apis/credentials
 
@@ -22,7 +22,7 @@ GOOGLE_CLIENT_ID=xxx GOOGLE_CLIENT_SECRET=yyy cargo run --bin google
 x-www-browser http://127.0.0.1:5000/
 ```
 
-### Oauth2 login with Gitlab
+### OAuth2 login with Gitlab
 
 Create credentials at https://gitlab.example.com/admin/applications
 
