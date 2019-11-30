@@ -1,5 +1,5 @@
 [package]
-name = "actix-web-oauth"
+name = "actix-web-oauth2"
 version = "0.1.0"
 authors = ["Pirmin Kalberer <pka@sourcepole.ch>"]
 edition = "2018"

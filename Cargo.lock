@@ -250,7 +250,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "actix-web-oauth"
+name = "actix-web-oauth2"
 version = "0.1.0"
 dependencies = [
  "actix-session 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
