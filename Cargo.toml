@@ -1,6 +1,6 @@
 [package]
 name = "actix-web-oauth2"
-version = "0.2.0-dev"
+version = "0.2.0"
 authors = ["Pirmin Kalberer <pka@sourcepole.ch>"]
 edition = "2018"
 default-run = "gitlab"
@@ -10,11 +10,11 @@ actix-rt = "1.0.0"
 actix-web = "2.0.0"
 actix-session = "0.3.0"
 
-oauth2 = "2.0"
-curl = "0.4"
+oauth2 = "3.0.0-alpha.9"
 base64 = "0.10"
 rand = "0.7"
-url = "1.7"
+url = "2.1"
+http = "0.1"
 
 futures = "0.3.1"
 serde = "1.0"

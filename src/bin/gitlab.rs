@@ -3,12 +3,12 @@ extern crate serde_derive;
 use actix_session::{CookieSession, Session};
 use actix_web::http::header;
 use actix_web::{web, App, HttpResponse, HttpServer};
-use curl::easy::Easy;
+use http::{HeaderMap, Method};
 use oauth2::basic::BasicClient;
-use oauth2::prelude::*;
+use oauth2::reqwest::http_client;
 use oauth2::{
-    AccessToken, AuthUrl, AuthorizationCode, ClientId, ClientSecret, CsrfToken, RedirectUrl, Scope,
-    TokenResponse, TokenUrl,
+    AccessToken, AuthUrl, AuthorizationCode, ClientId, ClientSecret, CsrfToken, PkceCodeChallenge,
+    RedirectUrl, Scope, TokenResponse, TokenUrl,
 };
 use std::env;
 use url::Url;
@@ -38,10 +38,20 @@ fn index(session: Session) -> HttpResponse {
 }
 
 fn login(data: web::Data<AppState>) -> HttpResponse {
+    // Create a PKCE code verifier and SHA-256 encode it as a code challenge.
+    let (pkce_code_challenge, _pkce_code_verifier) = PkceCodeChallenge::new_random_sha256();
     // Generate the authorization URL to which we'll redirect the user.
-    let (authorize_url, _csrf_state) = &data.oauth.authorize_url(CsrfToken::new_random);
+    let (auth_url, _csrf_token) = &data
+        .oauth
+        .authorize_url(CsrfToken::new_random)
+        // Set the desired scopes.
+        .add_scope(Scope::new("read_user".to_string()))
+        // Set the PKCE code challenge.
+        .set_pkce_challenge(pkce_code_challenge)
+        .url();
+
     HttpResponse::Found()
-        .header(header::LOCATION, authorize_url.to_string())
+        .header(header::LOCATION, auth_url.to_string())
         .finish()
 }
 
@@ -86,29 +96,23 @@ pub struct UserInfo {
 }
 
 fn read_user(api_base_url: &str, access_token: &AccessToken) -> UserInfo {
-    let mut data = Vec::new();
-    let mut handle = Easy::new();
-    handle
-        .url(
-            format!(
-                "{}/user?access_token={}",
-                api_base_url,
-                access_token.secret()
-            )
-            .as_str(),
+    let url = Url::parse(
+        format!(
+            "{}/user?access_token={}",
+            api_base_url,
+            access_token.secret()
         )
-        .unwrap();
-    {
-        let mut transfer = handle.transfer();
-        transfer
-            .write_function(|new_data| {
-                data.extend_from_slice(new_data);
-                Ok(new_data.len())
-            })
-            .unwrap();
-        transfer.perform().unwrap();
-    }
-    serde_json::from_slice(&data).unwrap()
+        .as_str(),
+    )
+    .unwrap();
+    let resp = http_client(oauth2::HttpRequest {
+        url,
+        method: Method::GET,
+        headers: HeaderMap::new(),
+        body: Vec::new(),
+    })
+    .expect("Request failed");
+    serde_json::from_slice(&resp.body).unwrap()
 }
 
 #[derive(Deserialize)]
@@ -129,6 +133,7 @@ fn auth(
     let token = &data
         .oauth
         .exchange_code(code)
+        .request(http_client)
         .expect("exchange_code failed");
 
     let user_info = read_user(&data.api_base_url, token.access_token());
@@ -162,14 +167,10 @@ async fn main() {
         );
         let oauthserver =
             env::var("GITLAB_SERVER").expect("Missing the GITLAB_SERVER environment variable.");
-        let auth_url = AuthUrl::new(
-            Url::parse(format!("https://{}/oauth/authorize", oauthserver).as_str())
-                .expect("Invalid authorization endpoint URL"),
-        );
-        let token_url = TokenUrl::new(
-            Url::parse(format!("https://{}/oauth/token", oauthserver).as_str())
-                .expect("Invalid token endpoint URL"),
-        );
+        let auth_url = AuthUrl::new(format!("https://{}/oauth/authorize", oauthserver))
+            .expect("Invalid authorization endpoint URL");
+        let token_url = TokenUrl::new(format!("https://{}/oauth/token", oauthserver))
+            .expect("Invalid token endpoint URL");
         let api_base_url = format!("https://{}/api/v4", oauthserver);
 
         // Set up the config for the OAuth2 process.
@@ -179,11 +180,11 @@ async fn main() {
             auth_url,
             Some(token_url),
         )
-        .add_scope(Scope::new("read_user".to_string()))
         // This example will be running its own server at 127.0.0.1:5000.
-        .set_redirect_url(RedirectUrl::new(
-            Url::parse("http://127.0.0.1:5000/auth").expect("Invalid redirect URL"),
-        ));
+        .set_redirect_url(
+            RedirectUrl::new("http://127.0.0.1:5000/auth".to_string())
+                .expect("Invalid redirect URL"),
+        );
 
         App::new()
             .data(AppState {

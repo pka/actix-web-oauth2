@@ -4,12 +4,11 @@ use actix_session::{CookieSession, Session};
 use actix_web::http::header;
 use actix_web::{web, App, HttpResponse, HttpServer};
 use oauth2::basic::BasicClient;
-use oauth2::prelude::*;
 use oauth2::{
-    AuthUrl, AuthorizationCode, ClientId, ClientSecret, CsrfToken, RedirectUrl, Scope, TokenUrl,
+    AuthUrl, AuthorizationCode, ClientId, ClientSecret, CsrfToken, PkceCodeChallenge, RedirectUrl,
+    Scope, TokenUrl,
 };
 use std::env;
-use url::Url;
 
 struct AppState {
     oauth: BasicClient,
@@ -36,8 +35,24 @@ fn index(session: Session) -> HttpResponse {
 }
 
 fn login(data: web::Data<AppState>) -> HttpResponse {
+    // Google supports Proof Key for Code Exchange (PKCE - https://oauth.net/2/pkce/).
+    // Create a PKCE code verifier and SHA-256 encode it as a code challenge.
+    let (pkce_code_challenge, _pkce_code_verifier) = PkceCodeChallenge::new_random_sha256();
+
     // Generate the authorization URL to which we'll redirect the user.
-    let (authorize_url, _csrf_state) = &data.oauth.authorize_url(CsrfToken::new_random);
+    let (authorize_url, _csrf_state) = &data
+        .oauth
+        .authorize_url(CsrfToken::new_random)
+        // This example is requesting access to the "calendar" features and the user's profile.
+        .add_scope(Scope::new(
+            "https://www.googleapis.com/auth/calendar".to_string(),
+        ))
+        .add_scope(Scope::new(
+            "https://www.googleapis.com/auth/plus.me".to_string(),
+        ))
+        .set_pkce_challenge(pkce_code_challenge)
+        .url();
+
     HttpResponse::Found()
         .header(header::LOCATION, authorize_url.to_string())
         .finish()
@@ -98,14 +113,10 @@ async fn main() {
             env::var("GOOGLE_CLIENT_SECRET")
                 .expect("Missing the GOOGLE_CLIENT_SECRET environment variable."),
         );
-        let auth_url = AuthUrl::new(
-            Url::parse("https://accounts.google.com/o/oauth2/v2/auth")
-                .expect("Invalid authorization endpoint URL"),
-        );
-        let token_url = TokenUrl::new(
-            Url::parse("https://www.googleapis.com/oauth2/v3/token")
-                .expect("Invalid token endpoint URL"),
-        );
+        let auth_url = AuthUrl::new("https://accounts.google.com/o/oauth2/v2/auth".to_string())
+            .expect("Invalid authorization endpoint URL");
+        let token_url = TokenUrl::new("https://www.googleapis.com/oauth2/v3/token".to_string())
+            .expect("Invalid token endpoint URL");
 
         // Set up the config for the Google OAuth2 process.
         let client = BasicClient::new(
@@ -114,17 +125,10 @@ async fn main() {
             auth_url,
             Some(token_url),
         )
-        // This example is requesting access to the "calendar" features and the user's profile.
-        .add_scope(Scope::new(
-            "https://www.googleapis.com/auth/calendar".to_string(),
-        ))
-        .add_scope(Scope::new(
-            "https://www.googleapis.com/auth/plus.me".to_string(),
-        ))
-        // This example will be running its own server at 127.0.0.1:5000.
-        .set_redirect_url(RedirectUrl::new(
-            Url::parse("http://127.0.0.1:5000/auth").expect("Invalid redirect URL"),
-        ));
+        .set_redirect_url(
+            RedirectUrl::new("http://127.0.0.1:5000/auth".to_string())
+                .expect("Invalid redirect URL"),
+        );
 
         App::new()
             .data(AppState { oauth: client })
