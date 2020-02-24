@@ -5,7 +5,7 @@ This repo contains examples for using OAuth2 authentication in an [Actix Web](ht
 
 Current versions:
 
-- Actix Web 1.0
+- Actix Web 2.0
 - [OAuth2](https://github.com/ramosbugs/oauth2-rs) 2.0
 
 

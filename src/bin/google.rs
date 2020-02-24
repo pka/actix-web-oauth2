@@ -87,7 +87,8 @@ fn auth(
     HttpResponse::Ok().body(html)
 }
 
-fn main() {
+#[actix_rt::main]
+async fn main() {
     HttpServer::new(|| {
         let google_client_id = ClientId::new(
             env::var("GOOGLE_CLIENT_ID")
@@ -136,5 +137,6 @@ fn main() {
     .bind("127.0.0.1:5000")
     .expect("Can not bind to port 5000")
     .run()
+    .await
     .unwrap();
 }
